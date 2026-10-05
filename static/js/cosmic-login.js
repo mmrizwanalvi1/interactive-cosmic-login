@@ -2310,6 +2310,8 @@ const CosmicLogin = {
   },
 };
 
-document.addEventListener("DOMContentLoaded", () => {
+export function initCosmicLogin() {
   CosmicLogin.init();
-});
+}
+
+export { CosmicLogin };

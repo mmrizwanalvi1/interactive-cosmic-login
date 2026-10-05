@@ -1,6 +1,7 @@
 """Flask app serving the cosmic login UI preview.
 
-The /cosmic-login route is UI-only: no authentication is performed.
+The /cosmic-login route serves the React build when available, with a
+fallback to the legacy Flask template for development.
 When the real login is ready, pass enable_real_auth=True along with
 login_action_url / google_login_url (see templates/login_cosmic.html).
 
@@ -11,12 +12,15 @@ pulled live from the Wikipedia REST API, with offline fallbacks.
 import json
 import random
 import re
+from pathlib import Path
 import urllib.parse
 import urllib.request
 
-from flask import Flask, jsonify, redirect, render_template, url_for
+from flask import Flask, abort, jsonify, render_template, send_from_directory
 
 app = Flask(__name__)
+BASE_DIR = Path(__file__).resolve().parent
+DIST_DIR = BASE_DIR / "dist"
 
 WIKI_OBJECTS = [
     # planets & moons
@@ -122,13 +126,10 @@ def cosmic_fact():
     return jsonify(fact)
 
 
-@app.route("/")
-def index():
-    return redirect(url_for("cosmic_login"))
-
-
-@app.route("/cosmic-login")
-def cosmic_login():
+def _serve_frontend_index():
+    index_path = DIST_DIR / "index.html"
+    if index_path.exists():
+        return send_from_directory(DIST_DIR, "index.html")
     return render_template(
         "login_cosmic.html",
         # Flip to True later and provide the two URLs below to plug in
@@ -137,6 +138,24 @@ def cosmic_login():
         login_action_url=None,
         google_login_url=None,
     )
+
+
+@app.route("/assets/<path:filename>")
+def frontend_assets(filename):
+    asset_path = DIST_DIR / "assets" / filename
+    if not asset_path.exists():
+        abort(404)
+    return send_from_directory(DIST_DIR / "assets", filename)
+
+
+@app.route("/")
+def index():
+    return _serve_frontend_index()
+
+
+@app.route("/cosmic-login")
+def cosmic_login():
+    return _serve_frontend_index()
 
 
 if __name__ == "__main__":
